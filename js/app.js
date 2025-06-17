@@ -1,4 +1,17 @@
 let currentView = 'tasks';
+let currentViewMode = 'list';
+
+// DOM references for search and filter elements
+const searchInput = document.getElementById('search-input');
+const searchBtn = document.getElementById('search-btn');
+const priorityFilter = document.getElementById('priority-filter');
+const sortOption = document.getElementById('sort-option');
+
+// Event listeners for dynamic updates
+searchInput.addEventListener('input', renderTasks);
+searchBtn.addEventListener('click', renderTasks);
+priorityFilter.addEventListener('change', renderTasks);
+sortOption.addEventListener('change', renderTasks);
 
 // Initialize app
 window.addEventListener('load', async () => {
@@ -51,14 +64,61 @@ async function apiCall(endpoint, options = {}) {
     return response.json();
 }
 
-async function loadTasks() {
-    try {
-        const tasks = await apiCall('/tasks');
-        
-        const tasksHtml = tasks.map(task => `
-            <div class="task-card ${task.priority}-priority">
+function loadTasks() {
+    const searchQuery = searchInput.value.toLowerCase();
+    const selectedPriority = priorityFilter.value;
+    const selectedSort = sortOption.value;
+
+    let filteredTasks = mockTasks.filter(task => {
+        const titleMatch = task.title.toLowerCase().includes(searchQuery);
+        const descriptionMatch = task.description.toLowerCase().includes(searchQuery);
+        const dueDateMatch = task.dueDate && task.dueDate.includes(searchQuery);
+        return titleMatch || descriptionMatch || dueDateMatch;
+    });
+
+    if (selectedPriority !== 'all') {
+        filteredTasks = filteredTasks.filter(task => task.priority === selectedPriority);
+    }
+
+    filteredTasks.sort((a, b) => {
+        if (selectedSort === 'closest') {
+            if (a.dueDate && b.dueDate) {
+                return a.dueDate < b.dueDate ? -1 : 1;
+            } else if (a.dueDate) {
+                return -1;
+            } else if (b.dueDate) {
+                return 1;
+            } else {
+                return 0;
+            }
+        } else { // farthest
+            if (a.dueDate && b.dueDate) {
+                return a.dueDate > b.dueDate ? -1 : 1;
+            } else if (a.dueDate) {
+                return 1;
+            } else if (b.dueDate) {
+                return -1;
+            } else {
+                return 0;
+            }
+        }
+    });
+
+    const tasksHtml = filteredTasks.map(task => {
+        let descriptionHtml;
+        if (task.description && task.description.length > 200) {
+            const truncated = task.description.substring(0, 200) + '...';
+            descriptionHtml = `
+                <p class="task-description truncated" id="description-${task.taskId}">${truncated}</p>
+                <button class="see-more-btn" onclick="toggleDescription(this, '${task.taskId}')" aria-expanded="false" aria-controls="description-${task.taskId}">See more</button>
+            `;
+        } else {
+            descriptionHtml = `<p class="task-description">${task.description || 'No description'}</p>`;
+        }
+        return `
+            <div class="task-card ${task.priority}-priority" data-task-id="${task.taskId}">
                 <h3>${task.title}</h3>
-                <p>${task.description || 'No description'}</p>
+                ${descriptionHtml}
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
                     <small>
                         Priority: ${task.priority} | 
@@ -68,13 +128,38 @@ async function loadTasks() {
                     <button onclick="deleteTask('${task.taskId}')" class="btn-danger">Delete</button>
                 </div>
             </div>
-        `).join('');
-        
-        document.getElementById('tasks-list').innerHTML = tasksHtml || '<p>No tasks found. Create your first task!</p>';
-    } catch (error) {
-        console.error('Error loading tasks:', error);
-        document.getElementById('tasks-list').innerHTML = '<p>Error loading tasks</p>';
+        `;
+    }).join('');
+
+    document.getElementById('tasks-list').innerHTML = tasksHtml || '<p>No tasks found.</p>';
+}
+
+function toggleDescription(button, taskId) {
+    const taskCard = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+    const descriptionP = taskCard.querySelector('.task-description');
+    const fullDescription = mockTasks.find(task => task.taskId === taskId).description;
+    if (descriptionP.classList.contains('truncated')) {
+        descriptionP.textContent = fullDescription;
+        descriptionP.classList.remove('truncated');
+        button.textContent = 'See less';
+        button.setAttribute('aria-expanded', 'true');
+    } else {
+        descriptionP.textContent = fullDescription.substring(0, 200) + '...';
+        descriptionP.classList.add('truncated');
+        button.textContent = 'See more';
+        button.setAttribute('aria-expanded', 'false');
     }
+}
+
+function setView(view) {
+    currentViewMode = view;
+    const tasksContainer = document.getElementById('tasks-list');
+    tasksContainer.classList.remove('list-view', 'grid-view');
+    tasksContainer.classList.add(`${view}-view`);
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
 }
 
 async function deleteTask(taskId) {
