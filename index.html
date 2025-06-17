@@ -67,59 +67,28 @@
                 </form>
             </div>
             
-<div id="admin-view" class="view" style="display:none;">
-    <h2>Admin Dashboard</h2>
-    <div class="admin-grid">
-        <!-- System Statistics -->
-        <div class="admin-card">
-            <h3>System Statistics</h3>
-            <div id="stats">
-                <div class="chart-container" style="width:300px; height:300px; margin: 0 auto; position: relative;">
-                    <canvas id="priorityChart"></canvas>
-                    <div id="priorityChartCenterText" 
-                         style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); 
-                                font-size:1.1rem; font-weight:bold; pointer-events:none; text-align:center;">
-                        <!-- Filled in JS -->
+            <div id="admin-view" class="view" style="display:none;">
+                <h2>Admin Dashboard</h2>
+                <div class="admin-grid">
+                    <div class="admin-card">
+                        <h3>System Statistics</h3>
+                        <div id="stats"></div>
                     </div>
-                </div>
-                <div id="stats-textual" style="margin-top:1rem;"></div>
-            </div>
-        </div>
-
-        <!-- Activity Graph -->
-        <div class="admin-card">
-            <h3>Activity (Tasks Created per Day)</h3>
-            <div id="activity">
-                <div id="activity-controls" style="display:flex; justify-content:center; align-items:center; gap:10px; margin-bottom:0.5rem;">
-                    <button id="activity-prev-week" class="btn-primary" style="padding:4px 8px; font-size:0.9rem;">◀ Prev Week</button>
-                    <span id="activity-week-label" style="font-size:0.95rem;"></span>
-                    <button id="activity-next-week" class="btn-primary" style="padding:4px 8px; font-size:0.9rem;">Next Week ▶</button>
-                </div>
-                <div class="chart-container" style="width:100%; height:250px; position: relative;">
-                    <canvas id="activityChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- All Tasks -->
-        <div class="admin-card">
-            <h3>All Tasks</h3>
-            <div id="all-tasks">
-                <input type="text" id="all-tasks-search" placeholder="Search tasks by name, user email, or date" 
-                       style="width:100%; padding:6px 10px; margin-bottom:0.5rem; border:1px solid #ccc; border-radius:4px;">
-                <div id="all-tasks-container" class="scroll-container" style="max-height: 400px; overflow-y: auto; display:flex; flex-direction:column; gap:0.5rem;">
-                    <!-- Task items injected here -->
+                    <div class="admin-card">
+                        <h3>Recent Activity</h3>
+                        <div id="activity"></div>
+                    </div>
+                    <div class="admin-card">
+                        <h3>All Tasks</h3>
+                        <div id="all-tasks"></div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
-
+    
     <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/app.js"></script>
-    <!-- Chart.js CDN for pie and bar charts -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 </body>
 </html>

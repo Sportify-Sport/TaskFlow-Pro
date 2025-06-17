@@ -15,13 +15,6 @@ searchBtn.addEventListener('click', loadTasks);
 priorityFilter.addEventListener('change', loadTasks);
 sortOption.addEventListener('change', loadTasks);
 
-function formatDateYYYYMMDD(date) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-}
-
 // Initialize app
 window.addEventListener('load', async () => {
     if (await checkAuth()) {
@@ -222,286 +215,35 @@ document.getElementById('task-form')?.addEventListener('submit', async (e) => {
 
 async function loadAdminDashboard() {
     if (!currentUser.isAdmin) return;
+    
     try {
-        // 1. Fetch main analytics
         const stats = await apiCall('/admin/analytics');
-        // 2. Render priority donut
-        renderPriorityChart(stats);
-        // 3. Setup activity chart controls (which triggers initial fetch & render)
-        setupActivityControls();
-        // 4. Setup All Tasks section (fetch & render)
-        setupAllTasksSection();
-    } catch (error) {
-        console.error('Error loading admin dashboard:', error);
-        // Optionally display error UI in each section
-    }
-}
-
-let priorityChartInstance = null;
-
-function renderPriorityChart(stats) {
-    // stats.tasksByPriority expected: { high: N1, medium: N2, low: N3 }
-    const counts = [
-        stats.tasksByPriority.high || 0,
-        stats.tasksByPriority.medium || 0,
-        stats.tasksByPriority.low || 0
-    ];
-    const total = counts.reduce((a, b) => a + b, 0);
-    // Update center text
-    const centerDiv = document.getElementById('priorityChartCenterText');
-    if (centerDiv) {
-        centerDiv.textContent = `Total\n${total}`;
-    }
-    const ctx = document.getElementById('priorityChart').getContext('2d');
-    // If existing chart, destroy first
-    if (priorityChartInstance) {
-        priorityChartInstance.destroy();
-    }
-    priorityChartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['High', 'Medium', 'Low'],
-            datasets: [{
-                data: counts,
-                backgroundColor: [
-                    '#e53e3e', // high (red)
-                    '#f39c12', // medium (orange)
-                    '#48bb78'  // low (green)
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            maintainAspectRatio: false,
-            cutout: '60%', // make donut hole large enough to show text
-            plugins: {
-                legend: {
-                    position: 'bottom'
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const label = context.label || '';
-                            const value = context.parsed || 0;
-                            const pct = total ? ((value / total) * 100).toFixed(1) : '0.0';
-                            return `${label}: ${value} (${pct}%)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-
-    // Optionally also show textual breakdown under chart
-    const textualDiv = document.getElementById('stats-textual');
-    if (textualDiv) {
-        textualDiv.innerHTML = `
-            <p>High: ${counts[0]}</p>
-            <p>Medium: ${counts[1]}</p>
-            <p>Low: ${counts[2]}</p>
+        
+        // Display statistics
+        document.getElementById('stats').innerHTML = `
+            <p>Total Tasks: ${stats.totalTasks}</p>
+            <h4>Tasks by Status:</h4>
+            ${Object.entries(stats.tasksByStatus || {}).map(([status, count]) => 
+                `<p>${status}: ${count}</p>`
+            ).join('')}
+            <h4>Tasks by Priority:</h4>
+            ${Object.entries(stats.tasksByPriority || {}).map(([priority, count]) => 
+                `<p>${priority}: ${count}</p>`
+            ).join('')}
         `;
-    }
-}
-
-let activityChartInstance = null;
-let activityWeekOffset = 0; // 0 = last 7 days (including today?), 1 = previous week, etc.
-
-function setupActivityControls() {
-    const prevBtn = document.getElementById('activity-prev-week');
-    const nextBtn = document.getElementById('activity-next-week');
-    const labelSpan = document.getElementById('activity-week-label');
-
-    if (!prevBtn || !nextBtn || !labelSpan) return;
-
-    prevBtn.addEventListener('click', () => {
-        activityWeekOffset++;
-        fetchAndRenderActivity();
-    });
-    nextBtn.addEventListener('click', () => {
-        if (activityWeekOffset > 0) {
-            activityWeekOffset--;
-            fetchAndRenderActivity();
-        }
-    });
-    // Initial fetch:
-    fetchAndRenderActivity();
-}
-
-function fetchAndRenderActivity() {
-    // Compute date range for the week at offset activityWeekOffset.
-    // Define "last week by default" as: from 7 days ago (inclusive) up to yesterday (inclusive).
-    // If offset=0: e.g. if today is 2025-06-17, then last week = 2025-06-10 to 2025-06-16.
-    // If offset=1: previous: 2025-06-03 to 2025-06-09, etc.
-    const today = new Date();
-    // We define endDate as yesterday:
-    const endDate = new Date(today);
-    endDate.setDate(endDate.getDate() - 1 - 7 * activityWeekOffset);
-    const startDate = new Date(endDate);
-    startDate.setDate(startDate.getDate() - 6);
-    const startStr = formatDateYYYYMMDD(startDate);
-    const endStr = formatDateYYYYMMDD(endDate);
-
-    // Update label
-    const labelSpan = document.getElementById('activity-week-label');
-    if (labelSpan) {
-        labelSpan.textContent = `${startStr} → ${endStr}`;
-    }
-    // Enable/disable nextBtn if at offset 0
-    const nextBtn = document.getElementById('activity-next-week');
-    if (nextBtn) {
-        nextBtn.disabled = (activityWeekOffset === 0);
-    }
-
-    // Fetch data from backend: assume endpoint `/admin/activity?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD`
-    apiCall(`/admin/activity?startDate=${startStr}&endDate=${endStr}`)
-        .then(data => {
-            // data: array of { date: 'YYYY-MM-DD', count: N }. Ensure includes all days in range.
-            // Build arrays for labels and counts in chronological order.
-            const labels = [];
-            const counts = [];
-            const dateMap = {};
-            data.forEach(item => {
-                dateMap[item.date] = item.count;
-            });
-            // Iterate from startDate to endDate inclusive:
-            const cur = new Date(startDate);
-            while (cur <= endDate) {
-                const dStr = formatDateYYYYMMDD(cur);
-                labels.push(dStr);
-                counts.push(dateMap[dStr] || 0);
-                cur.setDate(cur.getDate() + 1);
-            }
-            renderActivityChart(labels, counts);
-        })
-        .catch(err => {
-            console.error('Error fetching activity data:', err);
-            // Optionally clear chart or show message
-        });
-}
-
-function renderActivityChart(labels, counts) {
-    const ctx = document.getElementById('activityChart').getContext('2d');
-    if (activityChartInstance) {
-        activityChartInstance.destroy();
-    }
-    activityChartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Tasks Created',
-                data: counts,
-                backgroundColor: '#667eea' // default Chart.js color, or let default
-            }]
-        },
-        options: {
-            maintainAspectRatio: false,
-            scales: {
-                x: {
-                    ticks: {
-                        maxRotation: 45,
-                        minRotation: 0
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    precision: 0
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const v = context.parsed.y;
-                            return `Created: ${v}`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-let allTasksList = []; // to store fetched tasks
-
-function setupAllTasksSection() {
-    const searchInput = document.getElementById('all-tasks-search');
-    if (searchInput) {
-        searchInput.addEventListener('input', () => {
-            renderAllTasksList(allTasksList, searchInput.value.trim().toLowerCase());
-        });
-    }
-    // Initial fetch
-    fetchAllTasks();
-}
-
-async function fetchAllTasks() {
-    try {
-        // Adjust endpoint as per your backend
-        const tasks = await apiCall('/admin/all-tasks');
-        // Expect tasks: array of objects: { taskId, title, userEmail, createdAt, ... }
-        // Sort if desired, e.g. by createdAt descending:
-        tasks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        allTasksList = tasks;
-        renderAllTasksList(allTasksList, (document.getElementById('all-tasks-search')?.value || '').trim().toLowerCase());
-    } catch (err) {
-        console.error('Error fetching all tasks:', err);
-        const container = document.getElementById('all-tasks-container');
-        if (container) {
-            container.innerHTML = '<p>Error loading tasks.</p>';
-        }
-    }
-}
-
-function renderAllTasksList(tasks, filterText) {
-    const container = document.getElementById('all-tasks-container');
-    if (!container) return;
-    let filtered = tasks;
-    if (filterText) {
-        filtered = tasks.filter(task => {
-            // Check title
-            const titleMatch = task.title && task.title.toLowerCase().includes(filterText);
-            // Check userEmail
-            const emailMatch = task.userEmail && task.userEmail.toLowerCase().includes(filterText);
-            // Check createdAt date: format to YYYY-MM-DD or locale string
-            let dateMatch = false;
-            if (task.createdAt) {
-                const d = new Date(task.createdAt);
-                const dStr = formatDateYYYYMMDD(d);
-                const localeStr = d.toLocaleDateString(); // e.g. "6/17/2025" depending on locale
-                dateMatch = dStr.includes(filterText) || localeStr.includes(filterText);
-            }
-            return titleMatch || emailMatch || dateMatch;
-        });
-    }
-    if (filtered.length === 0) {
-        container.innerHTML = '<p>No tasks found.</p>';
-        return;
-    }
-    // Build HTML: reuse similar structure as in loadTasks, but include userEmail and createdAt
-    const html = filtered.map(task => {
-        const created = task.createdAt ? new Date(task.createdAt).toLocaleString() : '';
-        // Optional: priority/status badges
-        const priorityBadge = task.priority ? `<span class="badge" style="background:${{
-            high: '#e53e3e',
-            medium: '#f39c12',
-            low: '#48bb78'
-        }[task.priority] || '#ccc'}">${task.priority}</span>` : '';
-        const statusText = task.status ? ` | Status: ${task.status}` : '';
-        return `
-            <div class="task-card" data-task-id="${task.taskId}">
+        
+        // Display recent tasks
+        document.getElementById('all-tasks').innerHTML = stats.recentTasks.map(task => `
+            <div class="task-card">
                 <h4>${task.title}</h4>
                 <p>User: ${task.userEmail}</p>
-                <small>Created: ${created}${statusText}</small>
-                <div style="margin-top:4px;">${priorityBadge}</div>
+                <small>Created: ${new Date(task.createdAt).toLocaleString()}</small>
             </div>
-        `;
-    }).join('');
-    container.innerHTML = html;
-    // The CSS `.scroll-container` ensures scroll if >4 items.
+        `).join('');
+        
+    } catch (error) {
+        console.error('Error loading admin dashboard:', error);
+    }
 }
 
 // Add danger button style
