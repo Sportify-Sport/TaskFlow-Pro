@@ -8,10 +8,10 @@ const priorityFilter = document.getElementById('priority-filter');
 const sortOption = document.getElementById('sort-option');
 
 // Event listeners for dynamic updates
-searchInput.addEventListener('input', renderTasks);
-searchBtn.addEventListener('click', renderTasks);
-priorityFilter.addEventListener('change', renderTasks);
-sortOption.addEventListener('change', renderTasks);
+searchInput.addEventListener('input', loadTasks);
+searchBtn.addEventListener('click', loadTasks);
+priorityFilter.addEventListener('change', loadTasks);
+sortOption.addEventListener('change', loadTasks);
 
 // Initialize app
 window.addEventListener('load', async () => {
