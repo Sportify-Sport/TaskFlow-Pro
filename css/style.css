@@ -293,3 +293,14 @@ input, textarea, select {
     border-radius: 5px;
     font-size: 14px;
 }
+.scroll-container .task-card {
+    margin-bottom: 0.5rem;
+}
+
+/* If you want exactly 4 items visible before scroll, set max-height based on item height.
+   Example: if each .task-card is approx. 80px tall including margin, use ~4*90px=360px. */
+
+/* Chart container: if you want to centralize styling: */
+.chart-container {
+    position: relative;
+}
