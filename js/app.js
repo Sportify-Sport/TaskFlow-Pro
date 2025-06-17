@@ -6,6 +6,8 @@ const searchInput = document.getElementById('search-input');
 const searchBtn = document.getElementById('search-btn');
 const priorityFilter = document.getElementById('priority-filter');
 const sortOption = document.getElementById('sort-option');
+// At top of loadTasks (or in a scope accessible to it):
+const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
 
 // Event listeners for dynamic updates
 searchInput.addEventListener('input', loadTasks);
@@ -70,41 +72,47 @@ async function loadTasks() {
     const selectedPriority = priorityFilter.value;
     const selectedSort = sortOption.value;
 
+    // Filter based on search text
     let filteredTasks = tasks.filter(task => {
         const titleMatch = task.title.toLowerCase().includes(searchQuery);
-        const descriptionMatch = task.description.toLowerCase().includes(searchQuery);
-        const dueDateMatch = task.dueDate && task.dueDate.includes(searchQuery);
+        const descriptionMatch = (task.description || '').toLowerCase().includes(searchQuery);
+        const dueDateMatch = task.dueDate ? task.dueDate.includes(searchQuery) : false;
         return titleMatch || descriptionMatch || dueDateMatch;
     });
 
+    // Filter by selected priority if not 'all'
     if (selectedPriority !== 'all') {
         filteredTasks = filteredTasks.filter(task => task.priority === selectedPriority);
     }
 
+    // Sort by priority first (high → medium → low), then by due date if present
     filteredTasks.sort((a, b) => {
-        if (selectedSort === 'closest') {
-            if (a.dueDate && b.dueDate) {
-                return a.dueDate < b.dueDate ? -1 : 1;
-            } else if (a.dueDate) {
-                return -1;
-            } else if (b.dueDate) {
-                return 1;
+        // 1. Compare priority
+        const pa = PRIORITY_ORDER[a.priority] ?? Number.MAX_SAFE_INTEGER;
+        const pb = PRIORITY_ORDER[b.priority] ?? Number.MAX_SAFE_INTEGER;
+        if (pa !== pb) {
+            return pa - pb;
+        }
+        // 2. Same priority: compare due date based on selectedSort
+        if (a.dueDate && b.dueDate) {
+            if (selectedSort === 'closest') {
+                // earlier date first
+                return a.dueDate < b.dueDate ? -1 : (a.dueDate > b.dueDate ? 1 : 0);
             } else {
-                return 0;
+                // farthest first
+                return a.dueDate > b.dueDate ? -1 : (a.dueDate < b.dueDate ? 1 : 0);
             }
-        } else { // farthest
-            if (a.dueDate && b.dueDate) {
-                return a.dueDate > b.dueDate ? -1 : 1;
-            } else if (a.dueDate) {
-                return 1;
-            } else if (b.dueDate) {
-                return -1;
-            } else {
-                return 0;
-            }
+        } else if (a.dueDate) {
+            // if only a has due date: for closest-first, put a first; for farthest-first, put b first
+            return selectedSort === 'closest' ? -1 : 1;
+        } else if (b.dueDate) {
+            return selectedSort === 'closest' ? 1 : -1;
+        } else {
+            return 0;
         }
     });
 
+    // Build HTML for tasks
     const tasksHtml = filteredTasks.map(task => {
         let descriptionHtml;
         if (task.description && task.description.length > 200) {
@@ -114,6 +122,7 @@ async function loadTasks() {
                 <button class="see-more-btn" onclick="toggleDescription(this, '${task.taskId}')" aria-expanded="false" aria-controls="description-${task.taskId}">See more</button>
             `;
         } else {
+            // Use the same class so wrapping applies
             descriptionHtml = `<p class="task-description">${task.description || 'No description'}</p>`;
         }
         return `
@@ -134,6 +143,7 @@ async function loadTasks() {
 
     document.getElementById('tasks-list').innerHTML = tasksHtml || '<p>No tasks found.</p>';
 }
+
 
 async function toggleDescription(button, taskId) {
     const tasks = await apiCall('/tasks');

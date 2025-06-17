@@ -165,6 +165,16 @@ h1 {
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
+/* Ensure full descriptions wrap and do not overflow */
+.task-description {
+    /* Allow wrapping/breaking long words */
+    overflow-wrap: break-word;
+    word-break: break-word;
+    white-space: normal; /* ensure normal wrapping */
+}
+
+/* The truncated class uses -webkit-line-clamp; when removed, the above ensures wrapping */
+
 
 .see-more-btn {
     background: #e2e8f0;
