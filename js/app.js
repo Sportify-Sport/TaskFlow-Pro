@@ -4,10 +4,14 @@ const searchInput = document.getElementById('search-input'),
       searchBtn = document.getElementById('search-btn'),
       priorityFilter = document.getElementById('priority-filter'),
       sortOption = document.getElementById('sort-option');
+
+// Event listeners for search/filter
 if (searchInput) searchInput.addEventListener('input', () => loadTasks());
 if (searchBtn) searchBtn.addEventListener('click', () => loadTasks());
 if (priorityFilter) priorityFilter.addEventListener('change', () => loadTasks());
 if (sortOption) sortOption.addEventListener('change', () => loadTasks());
+
+// On load
 window.addEventListener('load', async () => {
     try {
         const isAuth = await checkAuth();
@@ -16,6 +20,15 @@ window.addEventListener('load', async () => {
         console.error('Error during initialization:', err);
     }
 });
+
+// Attach nav-btn listeners: buttons should have class 'nav-btn' and data-view attribute, e.g. data-view="tasks"
+document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
+    btn.addEventListener('click', e => {
+        const view = btn.dataset.view;
+        showView(view, e);
+    });
+});
+
 function showView(view, event) {
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
     const viewEl = document.getElementById(`${view}-view`);
@@ -33,6 +46,7 @@ function showView(view, event) {
         }
     }
 }
+
 async function apiCall(endpoint, options = {}) {
     const token = localStorage.getItem('idToken');
     const url = `${config.api.endpoint}${endpoint}`;
@@ -49,6 +63,7 @@ async function apiCall(endpoint, options = {}) {
     if (response.status === 204) return null;
     return response.json();
 }
+
 async function loadTasks() {
     try {
         const searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
@@ -57,7 +72,8 @@ async function loadTasks() {
         const tasks = await apiCall('/tasks');
         if (!Array.isArray(tasks)) {
             console.warn('Expected tasks array, got:', tasks);
-            document.getElementById('tasks-list').innerHTML = '<p>Error loading tasks</p>';
+            const container = document.getElementById('tasks-list');
+            if (container) container.innerHTML = '<p>Error loading tasks</p>';
             return;
         }
         let filteredTasks = tasks.filter(task => {
@@ -124,6 +140,7 @@ async function loadTasks() {
         if (container) container.innerHTML = '<p>Error loading tasks</p>';
     }
 }
+
 async function toggleDescription(button, taskId) {
     try {
         const tasks = await apiCall('/tasks');
@@ -156,6 +173,7 @@ async function toggleDescription(button, taskId) {
         console.error('Error toggling description:', err);
     }
 }
+
 async function deleteTask(taskId) {
     if (!confirm('Are you sure you want to delete this task?')) return;
     try {
@@ -166,6 +184,7 @@ async function deleteTask(taskId) {
         alert('Error deleting task');
     }
 }
+
 const taskForm = document.getElementById('task-form');
 if (taskForm) {
     taskForm.addEventListener('submit', async e => {
@@ -194,6 +213,7 @@ if (taskForm) {
         }
     });
 }
+
 async function loadAdminDashboard() {
     if (!(window.currentUser && window.currentUser.isAdmin)) return;
     try {
@@ -213,8 +233,6 @@ async function loadAdminDashboard() {
                 ).join('');
             }
             statsEl.innerHTML = html;
-        } else {
-            console.warn('No element with id="stats" found');
         }
         const allTasksEl = document.getElementById('all-tasks');
         if (allTasksEl) {
@@ -229,13 +247,13 @@ async function loadAdminDashboard() {
             } else {
                 allTasksEl.innerHTML = '<p>No recent tasks data.</p>';
             }
-        } else {
-            console.warn('No element with id="all-tasks" found');
         }
     } catch (error) {
         console.error('Error loading admin dashboard:', error);
     }
 }
+
+// Inject styles for danger button and wrapping
 (function() {
     const style = document.createElement('style');
     style.textContent = `
@@ -251,9 +269,18 @@ async function loadAdminDashboard() {
     .btn-danger:hover {
         background: #c53030;
     }
+    .task-card, .task-card * {
+        box-sizing: border-box;
+    }
+    .task-description {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
     `;
     document.head.appendChild(style);
 })();
+
 function setView(viewMode, event) {
     currentViewMode = viewMode;
     const tasksContainer = document.getElementById('tasks-list');
