@@ -7,6 +7,30 @@ from decimal import Decimal
 dynamodb = boto3.resource('dynamodb')
 tasks_table = dynamodb.Table('TaskFlow-Tasks')
 
+# Initialize clients
+sns = boto3.client('sns')
+ssm = boto3.client('ssm')
+
+# Cache for parameter store values
+config_cache = None
+
+def get_config():
+    """Retrieve configuration from Parameter Store with caching"""
+    global config_cache
+    
+    # Return cached value if available
+    if config_cache:
+        return config_cache
+    
+    try:
+        # Get parameter from Systems Manager
+        response = ssm.get_parameter(Name='/taskflow/config')
+        config_cache = json.loads(response['Parameter']['Value'])
+        return config_cache
+    except Exception as e:
+        print(f"Error retrieving config: {e}")
+        return None
+
 def lambda_handler(event, context):
     print(f"Event: {json.dumps(event)}")
     
@@ -74,6 +98,23 @@ def create_task(body, user_id, user_email):
     }
     
     tasks_table.put_item(Item=item)
+    
+    # Send SNS notification using Parameter Store config
+    config = get_config()
+    if config and 'snsTopicArn' in config:
+        try:
+            sns.publish(
+                TopicArn=config['snsTopicArn'],
+                Subject='New Task Created',
+                Message=f"User {user_email} created a new task: {data['title']}\nPriority: {data.get('priority', 'medium')}\nDescription: {data.get('description', 'No description')}"
+            )
+            print(f"SNS notification sent for task: {task_id}")
+        except Exception as e:
+            print(f"SNS notification failed: {e}")
+            # Don't fail the task creation if notification fails
+    else:
+        print("SNS configuration not found in Parameter Store")
+    
     return response(201, item)
 
 def delete_task(task_id, user_id, is_admin):
