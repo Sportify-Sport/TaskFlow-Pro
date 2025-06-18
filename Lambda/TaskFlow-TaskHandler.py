@@ -52,6 +52,8 @@ def lambda_handler(event, context):
         elif path.startswith('/tasks/') and http_method == 'DELETE':
             task_id = path.split('/')[-1]
             return delete_task(task_id, user_id, is_admin)
+        elif path == '/tasks/bulk-import' and http_method == 'POST':
+            return bulk_import_tasks(event['body'], user_id, user_email)
         else:
             return response(404, {'error': 'Not found'})
     except Exception as e:
@@ -98,7 +100,7 @@ def create_task(body, user_id, user_email):
     }
     
     tasks_table.put_item(Item=item)
-    
+
     # Send SNS notification using Parameter Store config
     config = get_config()
     if config and 'snsTopicArn' in config:
@@ -138,3 +140,51 @@ def delete_task(task_id, user_id, is_admin):
         )
     
     return response(200, {'message': 'Task deleted'})
+
+def bulk_import_tasks(body, user_id, user_email):
+    """Queue tasks for bulk import via SQS"""
+    data = json.loads(body)
+    tasks = data.get('tasks', [])
+    
+    if not tasks:
+        return response(400, {'error': 'No tasks provided'})
+    
+    # Get SQS URL from Parameter Store
+    config = get_config()
+    if not config or 'sqsQueueUrl' not in config:
+        return response(500, {'error': 'SQS configuration not found'})
+    
+    sqs = boto3.client('sqs')
+    
+    # Send to SQS in batches of 10 (SQS limit)
+    batch_size = 10
+    total_sent = 0
+    
+    for i in range(0, len(tasks), batch_size):
+        batch = tasks[i:i + batch_size]
+        entries = []
+        
+        for j, task in enumerate(batch):
+            entries.append({
+                'Id': str(j),
+                'MessageBody': json.dumps({
+                    'action': 'create_task',
+                    'userId': user_id,
+                    'userEmail': user_email,
+                    'task': task
+                })
+            })
+        
+        try:
+            sqs.send_message_batch(
+                QueueUrl=config['sqsQueueUrl'],
+                Entries=entries
+            )
+            total_sent += len(entries)
+        except Exception as e:
+            print(f"Error sending batch to SQS: {e}")
+    
+    return response(202, {
+        'message': f'Successfully queued {total_sent} tasks for import',
+        'total': total_sent
+    })

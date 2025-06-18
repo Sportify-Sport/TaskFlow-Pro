@@ -66,6 +66,82 @@ async function apiCall(endpoint, options = {}) {
   return response.json();
 }
 
+async function handleCSVUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const importStatus = document.getElementById('import-status');
+    importStatus.textContent = 'Processing...';
+    
+    try {
+        const csvText = await file.text();
+        const tasks = parseCSV(csvText);
+        
+        if (tasks.length === 0) {
+            alert('No valid tasks found in CSV');
+            importStatus.textContent = '';
+            return;
+        }
+        
+        // Send to bulk import endpoint
+        const response = await apiCall('/tasks/bulk-import', {
+            method: 'POST',
+            body: JSON.stringify({ tasks: tasks })
+        });
+        
+        importStatus.textContent = `✓ Queued ${tasks.length} tasks for import`;
+        alert(`Successfully queued ${tasks.length} tasks for import. You'll receive an email when complete.`);
+        
+        // Clear the file input
+        event.target.value = '';
+        
+        // Refresh tasks after a delay
+        setTimeout(() => {
+            loadTasks();
+            importStatus.textContent = '';
+        }, 3000);
+        
+    } catch (error) {
+        console.error('Import error:', error);
+        alert('Error importing tasks');
+        importStatus.textContent = '';
+    }
+}
+
+function parseCSV(csvText) {
+    const lines = csvText.split('\n');
+    const tasks = [];
+    
+    // Skip header row if exists
+    const startIndex = lines[0].toLowerCase().includes('title') ? 1 : 0;
+    
+    for (let i = startIndex; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        // Parse CSV line (handle commas in quotes)
+        const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+        
+        if (values.length >= 1) {
+            const task = {
+                title: values[0].replace(/"/g, ''),
+                description: values[1] ? values[1].replace(/"/g, '') : '',
+                priority: values[2] ? values[2].replace(/"/g, '').toLowerCase() : 'medium',
+                dueDate: values[3] ? values[3].replace(/"/g, '') : ''
+            };
+            
+            // Validate priority
+            if (!['low', 'medium', 'high'].includes(task.priority)) {
+                task.priority = 'medium';
+            }
+            
+            tasks.push(task);
+        }
+    }
+    
+    return tasks;
+}
+
 async function loadTasks() {
   const tasks = await apiCall("/tasks");
   const searchQuery = searchInput.value.toLowerCase();
