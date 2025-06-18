@@ -250,21 +250,24 @@ async function loadAdminDashboard() {
               .join("")}
         `;
 
-    // Add this after displaying statistics
+    // Display recent activity
     document.getElementById("activity").innerHTML =
       stats.recentTasks
         .slice(0, 5)
         .map(
           (task) => `
-    <div class="activity-item">
-        <strong>${task.title}</strong> - Created by ${task.userEmail}
-        <br><small>${new Date(task.createdAt).toLocaleString()}</small>
+    <div class="activity-item" style="padding: 10px; border-bottom: 1px solid #e2e8f0;">
+        <strong>${task.title}</strong>
+        <br>by ${task.userEmail}
+        <br><small style="color: #666;">${new Date(
+          task.createdAt
+        ).toLocaleString()}</small>
     </div>
 `
         )
         .join("") || "<p>No recent activity</p>";
 
-    // Display recent tasks
+    // Display all tasks
     document.getElementById("all-tasks").innerHTML = stats.recentTasks
       .map(
         (task) => `

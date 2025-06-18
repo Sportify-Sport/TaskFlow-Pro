@@ -10,7 +10,22 @@ analytics_table = dynamodb.Table('TaskFlow-Analytics')
 def lambda_handler(event, context):
     print(f"Event: {json.dumps(event)}")
     
-    # Verify admin access
+    # Check if this is from EventBridge
+    if 'source' in event and event['source'] == 'aws.events':
+        # EventBridge trigger - no auth needed
+        stats = calculate_stats()
+        print(f"Daily analytics calculated: {json.dumps(stats, default=str)}")
+        return stats
+    
+    # API Gateway request - check admin access
+    if 'requestContext' not in event:
+        return {
+            'statusCode': 400,
+            'headers': {'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': 'Invalid request'})
+        }
+    
+    # Verify admin access for API requests
     claims = event['requestContext']['authorizer']['claims']
     groups = claims.get('cognito:groups', '').split(',')
     
@@ -35,6 +50,7 @@ def lambda_handler(event, context):
         },
         'body': json.dumps(stats, default=str)
     }
+
 
 def calculate_stats():
     # Scan all tasks
