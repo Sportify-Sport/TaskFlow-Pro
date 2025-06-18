@@ -67,79 +67,82 @@ async function apiCall(endpoint, options = {}) {
 }
 
 async function handleCSVUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const importStatus = document.getElementById('import-status');
-    importStatus.textContent = 'Processing...';
-    
-    try {
-        const csvText = await file.text();
-        const tasks = parseCSV(csvText);
-        
-        if (tasks.length === 0) {
-            alert('No valid tasks found in CSV');
-            importStatus.textContent = '';
-            return;
-        }
-        
-        // Send to bulk import endpoint
-        const response = await apiCall('/tasks/bulk-import', {
-            method: 'POST',
-            body: JSON.stringify({ tasks: tasks })
-        });
-        
-        importStatus.textContent = `✓ Queued ${tasks.length} tasks for import`;
-        alert(`Successfully queued ${tasks.length} tasks for import. You'll receive an email when complete.`);
-        
-        // Clear the file input
-        event.target.value = '';
-        
-        // Refresh tasks after a delay
-        setTimeout(() => {
-            loadTasks();
-            importStatus.textContent = '';
-        }, 3000);
-        
-    } catch (error) {
-        console.error('Import error:', error);
-        alert('Error importing tasks');
-        importStatus.textContent = '';
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const importStatus = document.getElementById("import-status");
+  importStatus.textContent = "Processing...";
+
+  try {
+    const csvText = await file.text();
+    const tasks = parseCSV(csvText);
+
+    if (tasks.length === 0) {
+      alert("No valid tasks found in CSV");
+      importStatus.textContent = "";
+      return;
     }
+
+    // Send to bulk import endpoint
+    const response = await apiCall("/tasks/bulk-import", {
+      method: "POST",
+      body: JSON.stringify({ tasks: tasks }),
+    });
+
+    importStatus.textContent = `✓ Queued ${tasks.length} tasks for import`;
+    alert(
+      `Successfully queued ${tasks.length} tasks for import. You'll receive an email when complete.`
+    );
+
+    // Clear the file input
+    event.target.value = "";
+
+    // Refresh tasks after a delay
+    setTimeout(() => {
+      loadTasks();
+      importStatus.textContent = "";
+    }, 3000);
+  } catch (error) {
+    console.error("Import error:", error);
+    alert("Error importing tasks");
+    importStatus.textContent = "";
+  }
 }
 
 function parseCSV(csvText) {
-    const lines = csvText.split('\n');
-    const tasks = [];
-    
-    // Skip header row if exists
-    const startIndex = lines[0].toLowerCase().includes('title') ? 1 : 0;
-    
-    for (let i = startIndex; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        
-        // Parse CSV line (handle commas in quotes)
-        const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
-        
-        if (values.length >= 1) {
-            const task = {
-                title: values[0].replace(/"/g, ''),
-                description: values[1] ? values[1].replace(/"/g, '') : '',
-                priority: values[2] ? values[2].replace(/"/g, '').toLowerCase() : 'medium',
-                dueDate: values[3] ? values[3].replace(/"/g, '') : ''
-            };
-            
-            // Validate priority
-            if (!['low', 'medium', 'high'].includes(task.priority)) {
-                task.priority = 'medium';
-            }
-            
-            tasks.push(task);
-        }
+  const lines = csvText.split("\n");
+  const tasks = [];
+
+  // Skip header row if exists
+  const startIndex = lines[0].toLowerCase().includes("title") ? 1 : 0;
+
+  for (let i = startIndex; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    // Parse CSV line (handle commas in quotes)
+    const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+
+    if (values.length >= 1) {
+      const task = {
+        title: values[0].replace(/"/g, ""),
+        description: values[1] ? values[1].replace(/"/g, "") : "",
+        priority: values[2]
+          ? values[2].replace(/"/g, "").toLowerCase()
+          : "medium",
+        dueDate: values[3] ? values[3].replace(/"/g, "") : "",
+      };
+
+      // Validate priority
+      if (!["low", "medium", "high"].includes(task.priority)) {
+        task.priority = "medium";
+      }
+
+      tasks.push(task);
     }
-    
-    return tasks;
+  }
+
+  return tasks;
 }
 
 async function loadTasks() {
@@ -313,53 +316,252 @@ async function loadAdminDashboard() {
   try {
     const stats = await apiCall("/admin/analytics");
 
-    // Display statistics
-    document.getElementById("stats").innerHTML = `
+    // Display statistics text (excluding priority - shown in chart)
+    document.getElementById("stats-text").innerHTML = `
             <p>Total Tasks: ${stats.totalTasks}</p>
             <h4>Tasks by Status:</h4>
             ${Object.entries(stats.tasksByStatus || {})
               .map(([status, count]) => `<p>${status}: ${count}</p>`)
               .join("")}
-            <h4>Tasks by Priority:</h4>
-            ${Object.entries(stats.tasksByPriority || {})
-              .map(([priority, count]) => `<p>${priority}: ${count}</p>`)
-              .join("")}
         `;
 
+    // Create CSS donut chart for priorities
+    createCSSDonutChart(stats.tasksByPriority || {});
+
+    // Rest of your existing code...
     // Display recent activity
     document.getElementById("activity").innerHTML =
       stats.recentTasks
         .slice(0, 5)
         .map(
           (task) => `
-    <div class="activity-item" style="padding: 10px; border-bottom: 1px solid #e2e8f0;">
-        <strong>${task.title}</strong>
-        <br>by ${task.userEmail}
-        <br><small style="color: #666;">${new Date(
-          task.createdAt
-        ).toLocaleString()}</small>
-    </div>
-`
-        )
-        .join("") || "<p>No recent activity</p>";
-
-    // Display all tasks
-    document.getElementById("all-tasks").innerHTML = stats.recentTasks
-      .map(
-        (task) => `
-            <div class="task-card">
-                <h4>${task.title}</h4>
-                <p>User: ${task.userEmail}</p>
-                <small>Created: ${new Date(
+            <div class="activity-item" style="padding: 14px; margin-bottom: 12px; border-radius: 10px; background: #f8fafc; border-left: 3px solid #667eea; transition: all 0.2s;">
+                <strong style="color: #1e293b; font-size: 14px;">${
+                  task.title
+                }</strong>
+                <br><span style="color: #475569; font-size: 13px;">by ${
+                  task.userEmail
+                }</span>
+                <br><small style="color: #94a3b8; font-size: 12px;">${new Date(
                   task.createdAt
                 ).toLocaleString()}</small>
             </div>
         `
-      )
-      .join("");
+        )
+        .join("") ||
+      "<p style='color: #94a3b8; text-align: center; padding: 20px;'>No recent activity</p>";
+
+    // Store all tasks for search
+    window.allAdminTasks = stats.recentTasks || [];
+
+    // Display all tasks
+    displayAdminTasks(window.allAdminTasks);
+
+    // Add search event listener
+    const searchInput = document.getElementById("admin-task-search");
+    if (searchInput) {
+      searchInput.addEventListener("input", function (e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const filteredTasks = window.allAdminTasks.filter((task) => {
+          const titleMatch = (task.title || "")
+            .toLowerCase()
+            .includes(searchTerm);
+          const emailMatch = (task.userEmail || "")
+            .toLowerCase()
+            .includes(searchTerm);
+          const descriptionMatch = (task.description || "")
+            .toLowerCase()
+            .includes(searchTerm);
+          return titleMatch || emailMatch || descriptionMatch;
+        });
+        displayAdminTasks(filteredTasks);
+      });
+    }
   } catch (error) {
     console.error("Error loading admin dashboard:", error);
   }
+}
+
+// Function to display admin tasks with search and see more/less
+function displayAdminTasks(tasks) {
+  const container = document.getElementById("all-tasks");
+
+  if (!tasks || tasks.length === 0) {
+    container.innerHTML = `
+            <div class="no-results">
+                <div class="no-results-icon">📋</div>
+                <p class="no-results-text">No tasks found</p>
+            </div>
+        `;
+    return;
+  }
+
+  container.innerHTML = `<div class="all-tasks-container">${tasks
+    .map((task) => {
+      let descriptionHtml = "";
+      if (task.description) {
+        if (task.description.length > 200) {
+          const truncated = task.description.substring(0, 200) + "...";
+          descriptionHtml = `
+                            <p class="admin-task-description truncated" id="admin-desc-${task.taskId}">${truncated}</p>
+                            <button class="see-more-btn" onclick="toggleAdminDescription('${task.taskId}')" data-expanded="false">See more</button>
+                        `;
+        } else {
+          descriptionHtml = `<p class="admin-task-description">${task.description}</p>`;
+        }
+      }
+
+      return `
+                    <div class="admin-task-item" data-task-id="${
+                      task.taskId
+                    }" data-full-description="${encodeURIComponent(
+        task.description || ""
+      )}">
+                        <div class="admin-task-title">${task.title}</div>
+                        ${descriptionHtml}
+                        <div class="admin-task-meta">
+                            <div class="admin-task-user">
+                                <span style="display: flex; align-items: center; gap: 6px;">
+                                    <span>👤</span>
+                                    <span class="admin-task-email">${
+                                      task.userEmail
+                                    }</span>
+                                </span>
+                                <span class="admin-task-date">${new Date(
+                                  task.createdAt
+                                ).toLocaleString()}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+    })
+    .join("")}</div>`;
+}
+
+// Toggle description for admin tasks
+function toggleAdminDescription(taskId) {
+  const taskCard = document.querySelector(
+    `.admin-task-item[data-task-id="${taskId}"]`
+  );
+  const descriptionP = taskCard.querySelector(".admin-task-description");
+  const button = taskCard.querySelector(".see-more-btn");
+  const fullDescription = decodeURIComponent(
+    taskCard.getAttribute("data-full-description")
+  );
+
+  if (button.getAttribute("data-expanded") === "false") {
+    descriptionP.textContent = fullDescription;
+    descriptionP.classList.remove("truncated");
+    button.textContent = "See less";
+    button.setAttribute("data-expanded", "true");
+  } else {
+    descriptionP.textContent = fullDescription.substring(0, 200) + "...";
+    descriptionP.classList.add("truncated");
+    button.textContent = "See more";
+    button.setAttribute("data-expanded", "false");
+  }
+}
+
+// Modern donut chart function
+function createCSSDonutChart(data) {
+    const container = document.querySelector('.donut-chart-wrapper');
+    if (!container) return;
+
+    // Calculate total
+    const total = Object.values(data).reduce((sum, val) => sum + val, 0);
+
+    if (total === 0) {
+        container.innerHTML = `
+            <div class="donut-chart empty-state">
+                <div class="donut-center">
+                    <span class="total-count">0</span>
+                    <span class="total-label">No tasks</span>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    // Calculate percentages and angles
+    const percentages = {
+        high: Math.round(((data.high || 0) / total) * 100),
+        medium: Math.round(((data.medium || 0) / total) * 100),
+        low: Math.round(((data.low || 0) / total) * 100)
+    };
+
+    // Calculate cumulative angles
+    const highAngle = (percentages.high / 100) * 360;
+    const mediumAngle = highAngle + (percentages.medium / 100) * 360;
+
+    // Create the donut chart HTML
+    container.innerHTML = `
+        <div class="donut-chart" 
+             style="--high-angle: ${highAngle}deg; 
+                    --medium-angle: ${mediumAngle}deg;
+                    --high-percentage: ${percentages.high};
+                    --medium-percentage: ${percentages.medium};
+                    --low-percentage: ${percentages.low};">
+            <div class="donut-center">
+                <span class="total-count">${total}</span>
+                <span class="total-label">tasks</span>
+            </div>
+            ${data.high > 0 ? `
+                <div class="donut-segment high-segment">
+                    <div class="segment-tooltip">High Priority<br>${data.high} tasks (${percentages.high}%)</div>
+                </div>
+            ` : ''}
+            ${data.medium > 0 ? `
+                <div class="donut-segment medium-segment">
+                    <div class="segment-tooltip">Medium Priority<br>${data.medium} tasks (${percentages.medium}%)</div>
+                </div>
+            ` : ''}
+            ${data.low > 0 ? `
+                <div class="donut-segment low-segment">
+                    <div class="segment-tooltip">Low Priority<br>${data.low} tasks (${percentages.low}%)</div>
+                </div>
+            ` : ''}
+        </div>
+    `;
+
+    // Create legend
+    const legendContainer = document.getElementById('chart-legend');
+    if (legendContainer) {
+        const colors = {
+            high: '#ef4444',
+            medium: '#f59e0b',
+            low: '#10b981'
+        };
+
+        legendContainer.innerHTML = ['high', 'medium', 'low']
+            .filter(priority => data[priority] > 0)
+            .map(priority => `
+                <div class="legend-item">
+                    <div class="legend-color" style="background: ${colors[priority]}"></div>
+                    <span class="legend-text">${priority.charAt(0).toUpperCase() + priority.slice(1)}</span>
+                    <span class="legend-count">(${data[priority] || 0})</span>
+                </div>
+            `).join('');
+    }
+}
+
+
+// Helper function to calculate clip paths for hover areas
+function getClipPath(priority, percentages) {
+  const startAngle =
+    priority === "high"
+      ? -90
+      : priority === "medium"
+      ? -90 + percentages.high * 3.6
+      : -90 + (percentages.high + percentages.medium) * 3.6;
+  const endAngle =
+    priority === "high"
+      ? startAngle + percentages.high * 3.6
+      : priority === "medium"
+      ? startAngle + percentages.medium * 3.6
+      : startAngle + percentages.low * 3.6;
+
+  // This is a simplified approach - for production, you'd calculate precise polygon points
+  return "none"; // Let CSS handle the default clip-paths
 }
 
 // Add danger button style

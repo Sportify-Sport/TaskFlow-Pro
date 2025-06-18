@@ -115,7 +115,47 @@
           <div class="admin-grid">
             <div class="admin-card">
               <h3>System Statistics</h3>
-              <div id="stats"></div>
+              <div id="stats-text"></div>
+              <div class="chart-container">
+                <div class="donut-chart-wrapper">
+                  <div class="donut-chart" id="priorityDonut">
+                    <div
+                      class="donut-segment high-segment"
+                      data-percentage="29"
+                      data-count="7"
+                    >
+                      <div class="segment-tooltip">
+                        High Priority<br />7 tasks (29%)
+                      </div>
+                    </div>
+                    <div
+                      class="donut-segment medium-segment"
+                      data-percentage="29"
+                      data-count="7"
+                    >
+                      <div class="segment-tooltip">
+                        Medium Priority<br />7 tasks (29%)
+                      </div>
+                    </div>
+                    <div
+                      class="donut-segment low-segment"
+                      data-percentage="42"
+                      data-count="10"
+                    >
+                      <div class="segment-tooltip">
+                        Low Priority<br />10 tasks (42%)
+                      </div>
+                    </div>
+                    <div class="donut-hole">
+                      <div class="donut-center">
+                        <span class="total-count">24</span>
+                        <span class="total-label">tasks</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div id="chart-legend" class="chart-legend"></div>
+              </div>
             </div>
             <div class="admin-card">
               <h3>Recent Activity</h3>
@@ -123,6 +163,26 @@
             </div>
             <div class="admin-card">
               <h3>All Tasks</h3>
+              <div class="search-wrapper">
+                <input
+                  type="text"
+                  id="admin-task-search"
+                  placeholder="Search by title, email, or description..."
+                  class="admin-search-input"
+                />
+                <svg
+                  class="search-icon"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <path d="m21 21-4.35-4.35"></path>
+                </svg>
+              </div>
               <div id="all-tasks"></div>
             </div>
           </div>

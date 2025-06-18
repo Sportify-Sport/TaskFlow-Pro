@@ -293,3 +293,467 @@ input, textarea, select {
     border-radius: 5px;
     font-size: 14px;
 }
+
+/* Modern CSS Donut Chart */
+.chart-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 30px;
+    padding: 30px;
+    background: linear-gradient(135deg, rgba(248, 250, 252, 0.9) 0%, rgba(226, 232, 240, 0.9) 100%);
+    backdrop-filter: blur(10px);
+    border-radius: 24px;
+    box-shadow: 
+        0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 2px 4px -1px rgba(0, 0, 0, 0.06),
+        inset 0 1px 3px rgba(255, 255, 255, 0.8);
+}
+
+.donut-chart-wrapper {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    margin-bottom: 30px;
+}
+
+.donut-chart {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    overflow: visible;
+    transform: rotate(-90deg);
+    filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.15));
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Base donut background */
+.donut-chart::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: conic-gradient(
+        from 0deg,
+        #ef4444 0deg,
+        #ef4444 var(--high-angle, 104.4deg),
+        #f59e0b var(--high-angle, 104.4deg),
+        #f59e0b var(--medium-angle, 208.8deg),
+        #10b981 var(--medium-angle, 208.8deg),
+        #10b981 360deg
+    );
+}
+
+/* Center hole */
+.donut-hole,
+.donut-chart::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #f8fafc, #e2e8f0);
+    box-shadow: 
+        inset 0 4px 8px rgba(0, 0, 0, 0.1),
+        inset 0 -2px 4px rgba(255, 255, 255, 0.8);
+}
+
+.donut-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(90deg);
+    text-align: center;
+    z-index: 10;
+}
+
+.total-count {
+    font-size: 42px;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1;
+    display: block;
+    animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.5s both;
+}
+
+.total-label {
+    font-size: 16px;
+    color: #64748b;
+    font-weight: 500;
+    margin-top: 4px;
+    display: block;
+    animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.6s both;
+}
+
+/* Segment hover areas - using rotating divs */
+.donut-segment {
+    position: absolute;
+    width: 50%;
+    height: 100%;
+    left: 50%;
+    top: 0;
+    transform-origin: left center;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.donut-segment::before {
+    content: '';
+    position: absolute;
+    width: 200%;
+    height: 100%;
+    left: -100%;
+    top: 0;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.donut-segment:hover::before {
+    opacity: 0.1;
+    background: white;
+}
+
+/* Dynamic positioning for each segment */
+.high-segment {
+    transform: rotate(0deg);
+    z-index: 3;
+}
+
+.high-segment::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    transform: skewY(calc(90deg - var(--high-percentage, 29) * 3.6deg));
+    transform-origin: left center;
+}
+
+.medium-segment {
+    transform: rotate(var(--high-angle, 104.4deg));
+    z-index: 2;
+}
+
+.medium-segment::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    transform: skewY(calc(90deg - var(--medium-percentage, 29) * 3.6deg));
+    transform-origin: left center;
+}
+
+.low-segment {
+    transform: rotate(var(--medium-angle, 208.8deg));
+    z-index: 1;
+}
+
+.low-segment::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    transform: skewY(calc(90deg - var(--low-percentage, 42) * 3.6deg));
+    transform-origin: left center;
+}
+
+/* Tooltips with better positioning */
+.segment-tooltip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: rotate(90deg) translate(-50%, -50%) scale(0);
+    transform-origin: 0 0;
+    background: rgba(30, 41, 59, 0.95);
+    backdrop-filter: blur(10px);
+    color: white;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+    z-index: 100;
+}
+
+.donut-segment:hover .segment-tooltip {
+    transform: rotate(90deg) translate(-50%, -200%) scale(1);
+}
+
+/* Animations remain the same */
+@keyframes rotateIn {
+    from {
+        transform: rotate(-90deg) scale(0.8);
+        opacity: 0;
+    }
+    to {
+        transform: rotate(-90deg) scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Legend styles remain the same */
+.chart-legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 30px;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: fadeIn 1s cubic-bezier(0.4, 0, 0.2, 1) 0.8s both;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 22px;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    border-radius: 30px;
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.05),
+        inset 0 1px 2px rgba(255, 255, 255, 0.9);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.legend-item:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 
+        0 12px 24px rgba(0, 0, 0, 0.1),
+        inset 0 1px 3px rgba(255, 255, 255, 1);
+    background: rgba(255, 255, 255, 0.95);
+}
+
+.legend-color {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.1),
+        inset 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+/* Search Styles */
+.search-wrapper {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.admin-search-input {
+    width: 100%;
+    padding: 14px 48px 14px 18px;
+    border: 2px solid #e2e8f0;
+    border-radius: 14px;
+    font-size: 14px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: #fafbfc;
+    font-family: inherit;
+}
+
+.admin-search-input:focus {
+    outline: none;
+    border-color: #667eea;
+    background: white;
+    box-shadow: 
+        0 0 0 4px rgba(102, 126, 234, 0.1),
+        0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.admin-search-input::placeholder {
+    color: #94a3b8;
+}
+
+.search-icon {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    pointer-events: none;
+    transition: color 0.3s;
+}
+
+.admin-search-input:focus + .search-icon {
+    color: #667eea;
+}
+
+/* Enhanced All Tasks Cards */
+.all-tasks-container {
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.all-tasks-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.all-tasks-container::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+.all-tasks-container::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.all-tasks-container::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.admin-task-item {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 14px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.admin-task-item:hover {
+    border-color: #667eea;
+    box-shadow: 
+        0 4px 12px rgba(102, 126, 234, 0.08),
+        0 1px 3px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+}
+
+.admin-task-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.admin-task-description {
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 10px 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.admin-task-description.truncated {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.see-more-btn {
+    background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+    border: none;
+    padding: 6px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: #4c1d95;
+    transition: all 0.2s;
+    margin-top: 8px;
+    display: inline-block;
+}
+
+.see-more-btn:hover {
+    background: linear-gradient(135deg, #c7d2fe 0%, #a5b4fc 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.2);
+}
+
+.admin-task-meta {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 12px;
+}
+
+.admin-task-user {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.admin-task-email {
+    color: #334155;
+    font-weight: 500;
+}
+
+.admin-task-date {
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+/* No results message */
+.no-results {
+    text-align: center;
+    padding: 80px 20px;
+    color: #94a3b8;
+}
+
+.no-results-icon {
+    font-size: 56px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.no-results-text {
+    font-size: 16px;
+    font-weight: 500;
+    color: #64748b;
+}
+
+/* Stats text styling */
+#stats-text {
+    margin-bottom: 20px;
+}
+
+#stats-text > p:first-child {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 20px;
+}
+
+#stats-text h4 {
+    color: #475569;
+    font-size: 16px;
+    font-weight: 600;
+    margin: 16px 0 8px 0;
+}
+
+#stats-text p {
+    color: #64748b;
+    font-size: 14px;
+    margin: 6px 0;
+}
