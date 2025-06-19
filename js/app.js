@@ -642,17 +642,17 @@ function createCSSDonutChart(data) {
 
   if (total === 0) {
     container.innerHTML = `
-            <div class="donut-chart empty-state">
-                <div class="donut-center">
-                    <span class="total-count">0</span>
-                    <span class="total-label">No tasks</span>
-                </div>
-            </div>
-        `;
+      <div class="donut-chart empty-state">
+        <div class="donut-center">
+          <span class="total-count">0</span>
+          <span class="total-label">No tasks</span>
+        </div>
+      </div>
+    `;
     return;
   }
 
-  // Calculate percentages and angles
+  // Calculate percentages
   const percentages = {
     high: Math.round(((data.high || 0) / total) * 100),
     medium: Math.round(((data.medium || 0) / total) * 100),
@@ -663,43 +663,25 @@ function createCSSDonutChart(data) {
   const highAngle = (percentages.high / 100) * 360;
   const mediumAngle = highAngle + (percentages.medium / 100) * 360;
 
-  // Create the donut chart HTML
+  // Create the donut chart HTML (without tooltip/hover)
   container.innerHTML = `
-        <div class="donut-chart" 
-             style="--high-angle: ${highAngle}deg; 
-                    --medium-angle: ${mediumAngle}deg;
-                    --high-percentage: ${percentages.high};
-                    --medium-percentage: ${percentages.medium};
-                    --low-percentage: ${percentages.low};">
-            <div class="donut-center">
-                <span class="total-count">${total}</span>
-                <span class="total-label">tasks</span>
-            </div>
-            ${
-              data.high > 0
-                ? `
-                <div class="donut-segment high-segment"></div>
-            `
-                : ""
-            }
-            ${
-              data.medium > 0
-                ? `
-                <div class="donut-segment medium-segment"></div>
-            `
-                : ""
-            }
-            ${
-              data.low > 0
-                ? `
-                <div class="donut-segment low-segment"></div>
-            `
-                : ""
-            }
+    <div class="donut-chart" 
+         style="--high-angle: ${highAngle}deg; 
+                --medium-angle: ${mediumAngle}deg;
+                --high-percentage: ${percentages.high};
+                --medium-percentage: ${percentages.medium};
+                --low-percentage: ${percentages.low};">
+        <div class="donut-center">
+            <span class="total-count">${total}</span>
+            <span class="total-label">tasks</span>
         </div>
-    `;
+        ${data.high > 0 ? `<div class="donut-segment high-segment"></div>` : ""}
+        ${data.medium > 0 ? `<div class="donut-segment medium-segment"></div>` : ""}
+        ${data.low > 0 ? `<div class="donut-segment low-segment"></div>` : ""}
+    </div>
+  `;
 
-  // Create legend
+  // Create legend with percentages
   const legendContainer = document.getElementById("chart-legend");
   if (legendContainer) {
     const colors = {
@@ -710,19 +692,18 @@ function createCSSDonutChart(data) {
 
     legendContainer.innerHTML = ["high", "medium", "low"]
       .filter((priority) => data[priority] > 0)
-      .map(
-        (priority) => `
-                <div class="legend-item">
-                    <div class="legend-color" style="background: ${
-                      colors[priority]
-                    }"></div>
-                    <span class="legend-text">${
-                      priority.charAt(0).toUpperCase() + priority.slice(1)
-                    }</span>
-                    <span class="legend-count">(${data[priority] || 0})</span>
-                </div>
-            `
-      )
+      .map((priority) => {
+        const name = priority.charAt(0).toUpperCase() + priority.slice(1);
+        const count = data[priority];
+        const percent = percentages[priority];
+        return `
+          <div class="legend-item">
+            <div class="legend-color" style="background: ${colors[priority]}"></div>
+            <span class="legend-text">${name}</span>
+            <span class="legend-count">(${count} tasks, ${percent}%)</span>
+          </div>
+        `;
+      })
       .join("");
   }
 }
