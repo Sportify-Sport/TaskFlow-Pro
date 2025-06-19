@@ -678,27 +678,21 @@ function createCSSDonutChart(data) {
             ${
               data.high > 0
                 ? `
-                <div class="donut-segment high-segment">
-                    <div class="segment-tooltip">High Priority<br>${data.high} tasks (${percentages.high}%)</div>
-                </div>
+                <div class="donut-segment high-segment"></div>
             `
                 : ""
             }
             ${
               data.medium > 0
                 ? `
-                <div class="donut-segment medium-segment">
-                    <div class="segment-tooltip">Medium Priority<br>${data.medium} tasks (${percentages.medium}%)</div>
-                </div>
+                <div class="donut-segment medium-segment"></div>
             `
                 : ""
             }
             ${
               data.low > 0
                 ? `
-                <div class="donut-segment low-segment">
-                    <div class="segment-tooltip">Low Priority<br>${data.low} tasks (${percentages.low}%)</div>
-                </div>
+                <div class="donut-segment low-segment"></div>
             `
                 : ""
             }
