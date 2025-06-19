@@ -636,98 +636,101 @@ function toggleAdminDescription(taskId) {
 function createCSSDonutChart(data) {
   const container = document.querySelector(".donut-chart-wrapper");
   if (!container) return;
-  const total = Object.values(data).reduce((sum, v) => sum + v, 0);
+
+  // Calculate total
+  const total = Object.values(data).reduce((sum, val) => sum + val, 0);
+
   if (total === 0) {
-    container.innerHTML = `<div class="donut-chart empty-state">...No tasks...</div>`;
+    container.innerHTML = `
+            <div class="donut-chart empty-state">
+                <div class="donut-center">
+                    <span class="total-count">0</span>
+                    <span class="total-label">No tasks</span>
+                </div>
+            </div>
+        `;
     return;
   }
-  // Compute percentages
+
+  // Calculate percentages and angles
   const percentages = {
-    high: Math.round((data.high || 0) / total * 100),
-    medium: Math.round((data.medium || 0) / total * 100),
-    low: Math.round((data.low || 0) / total * 100),
+    high: Math.round(((data.high || 0) / total) * 100),
+    medium: Math.round(((data.medium || 0) / total) * 100),
+    low: Math.round(((data.low || 0) / total) * 100),
   };
-  // Compute angles
-  const highAngle = percentages.high * 3.6;
-  const mediumAngle = percentages.medium * 3.6;
-  const startAngles = {
-    high: -90,
-    medium: -90 + highAngle,
-    low: -90 + highAngle + mediumAngle,
-  };
-  // Build inner HTML for segments
+
+  // Calculate cumulative angles
+  const highAngle = (percentages.high / 100) * 360;
+  const mediumAngle = highAngle + (percentages.medium / 100) * 360;
+
+  // Create the donut chart HTML
   container.innerHTML = `
-    <div class="donut-chart"
-         style="--high-angle: ${highAngle}deg;
-                --medium-angle: ${highAngle + mediumAngle}deg;
-                --high-percentage: ${percentages.high};
-                --medium-percentage: ${percentages.medium};
-                --low-percentage: ${percentages.low};">
-      <div class="donut-center">...</div>
-      ${
-        data.high > 0
-          ? `<div class="donut-segment high-segment">
-               <div class="segment-tooltip">High Priority<br>${data.high} tasks (${percentages.high}%)</div>
-             </div>`
-          : ""
-      }
-      ${
-        data.medium > 0
-          ? `<div class="donut-segment medium-segment">
-               <div class="segment-tooltip">Medium Priority<br>${data.medium} tasks (${percentages.medium}%)</div>
-             </div>`
-          : ""
-      }
-      ${
-        data.low > 0
-          ? `<div class="donut-segment low-segment">
-               <div class="segment-tooltip">Low Priority<br>${data.low} tasks (${percentages.low}%)</div>
-             </div>`
-          : ""
-      }
-    </div>
-  `;
-  // Build legend as before...
-  // Then choose: fix tooltips or add labels
-  // For static labels:
-  const wrapper = container;
-  const radius = wrapper.clientWidth / 2;
-  // Remove old labels/tooltips from previous runs:
-  wrapper.querySelectorAll(".segment-label").forEach(el => el.remove());
-  wrapper.querySelectorAll(".segment-tooltip").forEach(el => {
-    // If using JS-based tooltip-positioning, detach from segment to wrapper; otherwise keep inside.
-    // For static labels approach, we can leave tooltips but they won’t be needed.
-  });
-  // Inject labels:
-  ["high", "medium", "low"].forEach((priority) => {
-    const count = data[priority] || 0;
-    if (count > 0) {
-      const midAngle = startAngles[priority] + (percentages[priority] * 3.6) / 2;
-      const rad = midAngle * Math.PI / 180;
-      const cx = radius, cy = radius;
-      const innerRadius = radius * 0.5; // adjust to match CSS hole size
-      const labelRadius = (radius + innerRadius) / 2;
-      const x = cx + labelRadius * Math.cos(rad);
-      const y = cy + labelRadius * Math.sin(rad);
-      const label = document.createElement("div");
-      label.className = "segment-label";
-      const percRounded = percentages[priority];
-      label.textContent = `${priority.charAt(0).toUpperCase() + priority.slice(1)} ${percRounded}%`;
-      label.style.position = "absolute";
-      label.style.left = `${x}px`;
-      label.style.top = `${y}px`;
-      label.style.transform = "translate(-50%, -50%)";
-      if (midAngle > 90 && midAngle < 270) {
-        label.style.transform += " rotate(180deg)";
-      }
-      label.style.fontSize = "12px";
-      label.style.fontWeight = "600";
-      label.style.color = "#fff";
-      label.style.textShadow = "0 0 2px rgba(0,0,0,0.7)";
-      label.style.pointerEvents = "none";
-      wrapper.appendChild(label);
-    }
-  });
+        <div class="donut-chart" 
+             style="--high-angle: ${highAngle}deg; 
+                    --medium-angle: ${mediumAngle}deg;
+                    --high-percentage: ${percentages.high};
+                    --medium-percentage: ${percentages.medium};
+                    --low-percentage: ${percentages.low};">
+            <div class="donut-center">
+                <span class="total-count">${total}</span>
+                <span class="total-label">tasks</span>
+            </div>
+            ${
+              data.high > 0
+                ? `
+                <div class="donut-segment high-segment">
+                    <div class="segment-tooltip">High Priority<br>${data.high} tasks (${percentages.high}%)</div>
+                </div>
+            `
+                : ""
+            }
+            ${
+              data.medium > 0
+                ? `
+                <div class="donut-segment medium-segment">
+                    <div class="segment-tooltip">Medium Priority<br>${data.medium} tasks (${percentages.medium}%)</div>
+                </div>
+            `
+                : ""
+            }
+            ${
+              data.low > 0
+                ? `
+                <div class="donut-segment low-segment">
+                    <div class="segment-tooltip">Low Priority<br>${data.low} tasks (${percentages.low}%)</div>
+                </div>
+            `
+                : ""
+            }
+        </div>
+    `;
+
+  // Create legend
+  const legendContainer = document.getElementById("chart-legend");
+  if (legendContainer) {
+    const colors = {
+      high: "#ef4444",
+      medium: "#f59e0b",
+      low: "#10b981",
+    };
+
+    legendContainer.innerHTML = ["high", "medium", "low"]
+      .filter((priority) => data[priority] > 0)
+      .map(
+        (priority) => `
+                <div class="legend-item">
+                    <div class="legend-color" style="background: ${
+                      colors[priority]
+                    }"></div>
+                    <span class="legend-text">${
+                      priority.charAt(0).toUpperCase() + priority.slice(1)
+                    }</span>
+                    <span class="legend-count">(${data[priority] || 0})</span>
+                </div>
+            `
+      )
+      .join("");
+  }
 }
 
 // Helper function to calculate clip paths for hover areas

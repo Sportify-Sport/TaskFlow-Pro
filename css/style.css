@@ -468,29 +468,28 @@ input, textarea, select {
 /* Tooltips with better positioning */
 .segment-tooltip {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -100%) scale(0);
-    transform-origin: center bottom;
+    top: 0;
+    left: 0;
+    transform: rotate(90deg) translate(-50%, -50%) scale(0);
+    transform-origin: 0 0;
     background: rgba(30, 41, 59, 0.95);
     backdrop-filter: blur(10px);
     color: white;
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 12px;
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 14px;
     font-weight: 500;
     text-align: center;
     white-space: nowrap;
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
-    transition: all 0.2s ease;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     pointer-events: none;
     z-index: 100;
 }
 
 .donut-segment:hover .segment-tooltip {
-    transform: translate(-50%, -120%) scale(1);
+    transform: rotate(90deg) translate(-50%, -200%) scale(1);
 }
-
 
 /* Animations remain the same */
 @keyframes rotateIn {
