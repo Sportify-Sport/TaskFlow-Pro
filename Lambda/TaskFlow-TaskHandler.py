@@ -54,6 +54,9 @@ def lambda_handler(event, context):
             return delete_task(task_id, user_id, is_admin)
         elif path == '/tasks/bulk-import' and http_method == 'POST':
             return bulk_import_tasks(event['body'], user_id, user_email)
+        elif path.startswith('/tasks/') and http_method == 'PUT':
+            task_id = path.split('/')[-1]
+            return update_task(event['body'], task_id, user_id, is_admin)
         else:
             return response(404, {'error': 'Not found'})
     except Exception as e:
@@ -188,3 +191,76 @@ def bulk_import_tasks(body, user_id, user_email):
         'message': f'Successfully queued {total_sent} tasks for import',
         'total': total_sent
     })
+
+def update_task(body, task_id, user_id, is_admin):
+    data = json.loads(body)
+    
+    # First, get the existing task to verify ownership
+    if is_admin:
+        # Admin can update any task
+        scan_result = tasks_table.scan(
+            FilterExpression='taskId = :tid',
+            ExpressionAttributeValues={':tid': task_id}
+        )
+        if not scan_result['Items']:
+            return response(404, {'error': 'Task not found'})
+        existing_task = scan_result['Items'][0]
+        task_user_id = existing_task['userId']
+    else:
+        # Regular users can only update their own tasks
+        result = tasks_table.query(
+            KeyConditionExpression='userId = :uid AND taskId = :tid',
+            ExpressionAttributeValues={
+                ':uid': user_id,
+                ':tid': task_id
+            }
+        )
+        if not result['Items']:
+            return response(404, {'error': 'Task not found'})
+        existing_task = result['Items'][0]
+        task_user_id = user_id
+    
+    # Prepare update expression
+    update_expr = []
+    expr_attr_values = {}
+    
+    if 'status' in data:
+        update_expr.append('#status = :status')
+        expr_attr_values[':status'] = data['status']
+        expr_attr_names = {'#status': 'status'}  # status might be a reserved word
+    else:
+        expr_attr_names = {}
+    
+    if 'title' in data:
+        update_expr.append('title = :title')
+        expr_attr_values[':title'] = data['title']
+    
+    if 'description' in data:
+        update_expr.append('description = :description')
+        expr_attr_values[':description'] = data['description']
+    
+    if 'priority' in data:
+        update_expr.append('priority = :priority')
+        expr_attr_values[':priority'] = data['priority']
+    
+    if 'dueDate' in data:
+        update_expr.append('dueDate = :dueDate')
+        expr_attr_values[':dueDate'] = data['dueDate']
+    
+    # Add updatedAt timestamp
+    update_expr.append('updatedAt = :updatedAt')
+    expr_attr_values[':updatedAt'] = datetime.utcnow().isoformat()
+    
+    # Update the task
+    update_params = {
+        'Key': {'userId': task_user_id, 'taskId': task_id},
+        'UpdateExpression': 'SET ' + ', '.join(update_expr),
+        'ExpressionAttributeValues': expr_attr_values
+    }
+
+    if expr_attr_names:
+        update_params['ExpressionAttributeNames'] = expr_attr_names
+    
+    tasks_table.update_item(**update_params)
+
+    return response(200, {'message': 'Task updated successfully'})

@@ -145,8 +145,91 @@ function parseCSV(csvText) {
   return tasks;
 }
 
+// These functions for task completion and editing
+async function completeTask(taskId) {
+  try {
+    await apiCall(`/tasks/${taskId}`, {
+      method: "PUT",
+      body: JSON.stringify({ status: "completed" }),
+    });
+    loadTasks();
+  } catch (error) {
+    alert("Error completing task");
+  }
+}
+
+// Add edit task modal functionality
+function openEditModal(taskId) {
+  const task = window.currentTasks.find((t) => t.taskId === taskId);
+  if (!task) return;
+
+  // Create modal HTML
+  const modalHtml = `
+        <div id="edit-modal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeEditModal()">&times;</span>
+                <h2>Edit Task</h2>
+                <form id="edit-task-form" onsubmit="updateTask(event, '${taskId}')">
+                    <input type="text" id="edit-title" value="${
+                      task.title
+                    }" required>
+                    <textarea id="edit-description" rows="4">${
+                      task.description || ""
+                    }</textarea>
+                    <select id="edit-priority">
+                        <option value="low" ${
+                          task.priority === "low" ? "selected" : ""
+                        }>Low</option>
+                        <option value="medium" ${
+                          task.priority === "medium" ? "selected" : ""
+                        }>Medium</option>
+                        <option value="high" ${
+                          task.priority === "high" ? "selected" : ""
+                        }>High</option>
+                    </select>
+                    <input type="date" id="edit-due-date" value="${
+                      task.dueDate || ""
+                    }">
+                    <button type="submit" class="btn-primary">Update Task</button>
+                </form>
+            </div>
+        </div>
+    `;
+
+  document.body.insertAdjacentHTML("beforeend", modalHtml);
+}
+
+function closeEditModal() {
+  const modal = document.getElementById("edit-modal");
+  if (modal) modal.remove();
+}
+
+async function updateTask(event, taskId) {
+  event.preventDefault();
+
+  const taskData = {
+    title: document.getElementById("edit-title").value,
+    description: document.getElementById("edit-description").value,
+    priority: document.getElementById("edit-priority").value,
+    dueDate: document.getElementById("edit-due-date").value,
+  };
+
+  try {
+    await apiCall(`/tasks/${taskId}`, {
+      method: "PUT",
+      body: JSON.stringify(taskData),
+    });
+    closeEditModal();
+    loadTasks();
+    alert("Task updated successfully!");
+  } catch (error) {
+    alert("Error updating task");
+  }
+}
+
 async function loadTasks() {
   const tasks = await apiCall("/tasks");
+  window.currentTasks = tasks; // Store for editing
   const searchQuery = searchInput.value.toLowerCase();
   const selectedPriority = priorityFilter.value;
   const selectedSort = sortOption.value;
@@ -200,6 +283,11 @@ async function loadTasks() {
   // Build HTML for tasks
   const tasksHtml = filteredTasks
     .map((task) => {
+      const isOverdue =
+        task.dueDate &&
+        new Date(task.dueDate) < new Date() &&
+        task.status !== "completed";
+      const isCompleted = task.status === "completed";
       let descriptionHtml;
       if (task.description && task.description.length > 200) {
         const truncated = task.description.substring(0, 200) + "...";
@@ -214,29 +302,113 @@ async function loadTasks() {
         }</p>`;
       }
       return `
-            <div class="task-card ${task.priority}-priority" data-task-id="${
-        task.taskId
-      }">
-                <h3>${task.title}</h3>
-                ${descriptionHtml}
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
-                    <small>
-                        Priority: ${task.priority} | 
-                        Due: ${task.dueDate || "No due date"} |
-                        Status: ${task.status}
-                    </small>
-                    <button onclick="deleteTask('${
-                      task.taskId
-                    }')" class="btn-danger">Delete</button>
+                <div class="task-card ${task.priority}-priority ${
+        isOverdue ? "overdue" : ""
+      } ${isCompleted ? "completed" : ""}" data-task-id="${task.taskId}">
+                    <h3>${task.title}</h3>
+                    ${descriptionHtml}
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                        <small>
+                            Priority: ${task.priority} | 
+                            Due: ${task.dueDate || "No due date"} |
+                            Status: ${task.status}
+                        </small>
+                        <div class="task-actions">
+                            <button onclick="completeTask('${
+                              task.taskId
+                            }')" class="btn-success" ${
+        isCompleted ? "disabled" : ""
+      }>
+                                ${isCompleted ? "✓ Completed" : "Complete"}
+                            </button>
+                            <button onclick="openEditModal('${
+                              task.taskId
+                            }')" class="btn-edit">Edit</button>
+                            <button onclick="deleteTask('${
+                              task.taskId
+                            }')" class="btn-danger">Delete</button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
     })
     .join("");
 
   document.getElementById("tasks-list").innerHTML =
     tasksHtml || "<p>No tasks found.</p>";
 }
+
+async function exportTasks() {
+  try {
+    const tasks = await apiCall("/tasks");
+
+    // Create CSV content with email
+    const headers = [
+      "Title",
+      "Description",
+      "Priority",
+      "Due Date",
+      "Status",
+      "Created",
+      "User Email",
+    ];
+    const rows = tasks.map((task) => [
+      task.title,
+      task.description || "",
+      task.priority,
+      task.dueDate || "",
+      task.status,
+      new Date(task.createdAt).toLocaleDateString(),
+      task.userEmail || currentUser.email, // Include email for each task
+    ]);
+
+    let csvContent = headers.join(",") + "\n";
+    rows.forEach((row) => {
+      csvContent +=
+        row
+          .map((cell) => {
+            // Escape quotes and wrap in quotes if contains comma
+            const escaped = String(cell).replace(/"/g, '""');
+            return escaped.includes(",") ? `"${escaped}"` : escaped;
+          })
+          .join(",") + "\n";
+    });
+
+    // Download file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `taskflow_tasks_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    alert("Error exporting tasks");
+    console.error(error);
+  }
+}
+
+// Dark mode functionality
+function toggleDarkMode() {
+  document.body.classList.toggle("dark-mode");
+  const isDark = document.body.classList.contains("dark-mode");
+  localStorage.setItem("darkMode", isDark);
+
+  // Update button text/icon
+  const darkModeBtn = document.getElementById("dark-mode-toggle");
+  if (darkModeBtn) {
+    darkModeBtn.textContent = isDark ? "☀️" : "🌙";
+  }
+}
+
+// Check dark mode preference on load
+window.addEventListener("load", () => {
+  if (localStorage.getItem("darkMode") === "true") {
+    document.body.classList.add("dark-mode");
+    const darkModeBtn = document.getElementById("dark-mode-toggle");
+    if (darkModeBtn) darkModeBtn.textContent = "☀️";
+  }
+});
 
 async function toggleDescription(button, taskId) {
   const tasks = await apiCall("/tasks");
@@ -464,14 +636,14 @@ function toggleAdminDescription(taskId) {
 
 // Modern donut chart function
 function createCSSDonutChart(data) {
-    const container = document.querySelector('.donut-chart-wrapper');
-    if (!container) return;
+  const container = document.querySelector(".donut-chart-wrapper");
+  if (!container) return;
 
-    // Calculate total
-    const total = Object.values(data).reduce((sum, val) => sum + val, 0);
+  // Calculate total
+  const total = Object.values(data).reduce((sum, val) => sum + val, 0);
 
-    if (total === 0) {
-        container.innerHTML = `
+  if (total === 0) {
+    container.innerHTML = `
             <div class="donut-chart empty-state">
                 <div class="donut-center">
                     <span class="total-count">0</span>
@@ -479,22 +651,22 @@ function createCSSDonutChart(data) {
                 </div>
             </div>
         `;
-        return;
-    }
+    return;
+  }
 
-    // Calculate percentages and angles
-    const percentages = {
-        high: Math.round(((data.high || 0) / total) * 100),
-        medium: Math.round(((data.medium || 0) / total) * 100),
-        low: Math.round(((data.low || 0) / total) * 100)
-    };
+  // Calculate percentages and angles
+  const percentages = {
+    high: Math.round(((data.high || 0) / total) * 100),
+    medium: Math.round(((data.medium || 0) / total) * 100),
+    low: Math.round(((data.low || 0) / total) * 100),
+  };
 
-    // Calculate cumulative angles
-    const highAngle = (percentages.high / 100) * 360;
-    const mediumAngle = highAngle + (percentages.medium / 100) * 360;
+  // Calculate cumulative angles
+  const highAngle = (percentages.high / 100) * 360;
+  const mediumAngle = highAngle + (percentages.medium / 100) * 360;
 
-    // Create the donut chart HTML
-    container.innerHTML = `
+  // Create the donut chart HTML
+  container.innerHTML = `
         <div class="donut-chart" 
              style="--high-angle: ${highAngle}deg; 
                     --medium-angle: ${mediumAngle}deg;
@@ -505,45 +677,63 @@ function createCSSDonutChart(data) {
                 <span class="total-count">${total}</span>
                 <span class="total-label">tasks</span>
             </div>
-            ${data.high > 0 ? `
+            ${
+              data.high > 0
+                ? `
                 <div class="donut-segment high-segment">
                     <div class="segment-tooltip">High Priority<br>${data.high} tasks (${percentages.high}%)</div>
                 </div>
-            ` : ''}
-            ${data.medium > 0 ? `
+            `
+                : ""
+            }
+            ${
+              data.medium > 0
+                ? `
                 <div class="donut-segment medium-segment">
                     <div class="segment-tooltip">Medium Priority<br>${data.medium} tasks (${percentages.medium}%)</div>
                 </div>
-            ` : ''}
-            ${data.low > 0 ? `
+            `
+                : ""
+            }
+            ${
+              data.low > 0
+                ? `
                 <div class="donut-segment low-segment">
                     <div class="segment-tooltip">Low Priority<br>${data.low} tasks (${percentages.low}%)</div>
                 </div>
-            ` : ''}
+            `
+                : ""
+            }
         </div>
     `;
 
-    // Create legend
-    const legendContainer = document.getElementById('chart-legend');
-    if (legendContainer) {
-        const colors = {
-            high: '#ef4444',
-            medium: '#f59e0b',
-            low: '#10b981'
-        };
+  // Create legend
+  const legendContainer = document.getElementById("chart-legend");
+  if (legendContainer) {
+    const colors = {
+      high: "#ef4444",
+      medium: "#f59e0b",
+      low: "#10b981",
+    };
 
-        legendContainer.innerHTML = ['high', 'medium', 'low']
-            .filter(priority => data[priority] > 0)
-            .map(priority => `
+    legendContainer.innerHTML = ["high", "medium", "low"]
+      .filter((priority) => data[priority] > 0)
+      .map(
+        (priority) => `
                 <div class="legend-item">
-                    <div class="legend-color" style="background: ${colors[priority]}"></div>
-                    <span class="legend-text">${priority.charAt(0).toUpperCase() + priority.slice(1)}</span>
+                    <div class="legend-color" style="background: ${
+                      colors[priority]
+                    }"></div>
+                    <span class="legend-text">${
+                      priority.charAt(0).toUpperCase() + priority.slice(1)
+                    }</span>
                     <span class="legend-count">(${data[priority] || 0})</span>
                 </div>
-            `).join('');
-    }
+            `
+      )
+      .join("");
+  }
 }
-
 
 // Helper function to calculate clip paths for hover areas
 function getClipPath(priority, percentages) {
