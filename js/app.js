@@ -90,9 +90,7 @@ async function handleCSVUpload(event) {
     });
 
     importStatus.textContent = `✓ Queued ${tasks.length} tasks for import`;
-    alert(
-      `Successfully queued ${tasks.length} tasks for import. You'll receive an email when complete.`
-    );
+    alert(`Successfully queued ${tasks.length} tasks for import. Administrators will be notified when complete.`);
 
     // Clear the file input
     event.target.value = "";

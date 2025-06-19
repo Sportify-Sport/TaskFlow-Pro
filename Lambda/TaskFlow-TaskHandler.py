@@ -186,7 +186,26 @@ def bulk_import_tasks(body, user_id, user_email):
             total_sent += len(entries)
         except Exception as e:
             print(f"Error sending batch to SQS: {e}")
-    
+
+    # Send SNS notification to admin about the import
+    if config and 'snsTopicArn' in config and total_sent > 0:
+        try:
+            sns.publish(
+                TopicArn=config['snsTopicArn'],
+                Subject='CSV Import Started - Admin Alert',
+                Message=f"""
+CSV Import Alert for Administrators
+
+User: {user_email}
+Number of tasks queued: {total_sent}
+Time: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
+
+The tasks are being processed and will be available shortly.
+                """
+            )
+            print(f"Admin notification sent for CSV import by {user_email}")
+        except Exception as e:
+            print(f"Admin notification failed: {e}")
     return response(202, {
         'message': f'Successfully queued {total_sent} tasks for import',
         'total': total_sent
