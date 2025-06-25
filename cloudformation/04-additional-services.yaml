@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'TaskFlow Pro - Phase 4: SNS, SQS, EventBridge, Parameter Store (Following Manual Instructions Steps 18-21, 23)'
+
+Parameters:
+  Phase1StackName:
+    Type: String
+    Default: 'TaskFlow-Phase1'
+    Description: Name of the Phase 1 infrastructure stack
+    
+  AdminEmail:
+    Type: String
+    Description: Admin email for SNS notifications
+    AllowedPattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
+    ConstraintDescription: Must be a valid email address
+
+Resources:
+  # ===== STEP 18: SNS TOPIC =====
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: TaskFlow-Notifications
+      DisplayName: TaskFlow Task Notifications
+      Subscription:
+        - Endpoint: !Ref AdminEmail
+          Protocol: email
+
+  # ===== STEP 19: SQS QUEUE =====
+  ProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: TaskFlow-ProcessingQueue
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 1209600
+      ReceiveMessageWaitTimeSeconds: 0
+
+  # ===== STEP 20: PARAMETER STORE CONFIG =====
+  TaskFlowConfig:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: /taskflow/config
+      Type: String
+      Value: !Sub |
+        {
+          "snsTopicArn": "${NotificationTopic}",
+          "sqsQueueUrl": "${ProcessingQueue}"
+        }
+      Description: TaskFlow Pro configuration with SNS and SQS details
+
+  # ===== STEP 21: EVENTBRIDGE RULE =====
+  DailyAnalyticsRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: TaskFlow-DailyReport
+      Description: Daily analytics report generation - rate(1 day) at 00:00
+      ScheduleExpression: rate(1 day)
+      State: ENABLED
+      Targets:
+        - Arn: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:TaskFlow-Analytics'
+          Id: TaskFlowAnalyticsTarget
+
+  # ===== LAMBDA PERMISSION FOR EVENTBRIDGE =====
+  AnalyticsLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: TaskFlow-Analytics
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt DailyAnalyticsRule.Arn
+
+Outputs:
+  SNSTopicArn:
+    Description: SNS Topic ARN for notifications (Step 18)
+    Value: !Ref NotificationTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-SNSTopicArn'
+
+  SQSQueueUrl:
+    Description: SQS Queue URL for processing (Step 19)
+    Value: !Ref ProcessingQueue
+    Export:
+      Name: !Sub '${AWS::StackName}-SQSQueueUrl'
+
+  SQSQueueArn:
+    Description: SQS Queue ARN for Lambda trigger (Step 23)
+    Value: !GetAtt ProcessingQueue.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-SQSQueueArn'
+
+  ParameterStoreName:
+    Description: Systems Manager Parameter Store name (Step 20)
+    Value: !Ref TaskFlowConfig
+
+  EventBridgeRuleName:
+    Description: EventBridge rule name (Step 21)
+    Value: !Ref DailyAnalyticsRule
+
+  ConfigParameterValue:
+    Description: Parameter Store configuration value
+    Value: !Sub |
+      {
+        "snsTopicArn": "${NotificationTopic}",
+        "sqsQueueUrl": "${ProcessingQueue}"
+      }
