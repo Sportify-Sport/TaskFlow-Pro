@@ -117,6 +117,10 @@ chmod +x scripts/*.sh
 5. Import API
 6. Choose File (Found inside api-gateway folder) -> TaskFlowAPI-prod-swagger-apigateway.yaml
 7. Create API
+8. Click at the API that you just created
+9. Click at Deploy
+10. New stage: prod
+11. Click Deploy
 
 ## Update config.js
 1.	Get your S3 website URL from S3 bucket properties
